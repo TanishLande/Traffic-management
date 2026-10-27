@@ -1,1418 +1,577 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AI-Powered V2X Network — Traffic Ops Dashboard</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-:root {
-  --bg:         #060b10;
-  --surface:    #0d1520;
-  --card:       #111c2a;
-  --card2:      #16243a;
-  --border:     #1e3050;
-  --border2:    #263d60;
-  --green:      #00e676;
-  --green-dim:  rgba(0,230,118,.12);
-  --yellow:     #ffca28;
-  --yellow-dim: rgba(255,202,40,.12);
-  --red:        #ff5252;
-  --red-dim:    rgba(255,82,82,.12);
-  --blue:       #40c4ff;
-  --blue-dim:   rgba(64,196,255,.1);
-  --purple:     #ce93d8;
-  --purple-dim: rgba(206,147,216,.12);
-  --orange:     #ff8f00;
-  --orange-dim: rgba(255,143,0,.12);
-  --evp:        #ff6e40;
-  --evp-dim:    rgba(255,110,64,.12);
-  --text:       #cfd8e8;
-  --muted:      #5a7a9a;
-  --muted2:     #3d5a78;
-  --glow-blue:  0 0 16px rgba(64,196,255,.25);
-  --glow-green: 0 0 16px rgba(0,230,118,.3);
-  --glow-red:   0 0 16px rgba(255,82,82,.3);
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', 'Segoe UI', sans-serif;
-  font-size: 12px;
-  overflow: hidden;
-  height: 100vh;
-}
-
-/* ══════════════════════════════════════════
-   HEADER / TOPBAR
-══════════════════════════════════════════ */
-.topbar {
-  height: 52px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  gap: 20px;
-  position: relative;
-  z-index: 100;
-}
-
-.topbar-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.topbar-logo .icon {
-  width: 32px; height: 32px;
-  background: linear-gradient(135deg, #0d3060, #1a5099);
-  border: 1px solid var(--blue);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  box-shadow: var(--glow-blue);
-}
-
-.topbar-logo .title { font-size: 14px; font-weight: 700; color: var(--blue); letter-spacing: .5px; }
-.topbar-logo .subtitle { font-size: 10px; color: var(--muted); font-weight: 400; }
-
-.topbar-divider { width: 1px; height: 30px; background: var(--border); }
-
-.topbar-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--green-dim);
-  border: 1px solid rgba(0,230,118,.2);
-  border-radius: 20px;
-  padding: 4px 12px;
-}
-.pulse-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 6px var(--green);
-  animation: blink 1.4s ease-in-out infinite;
-}
-@keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
-.status-label { font-size: 11px; font-weight: 600; color: var(--green); }
-
-.topbar-badges {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-  align-items: center;
-}
-
-.hdr-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid;
-}
-.hdr-badge.phase   { background: var(--blue-dim);   color: var(--blue);   border-color: rgba(64,196,255,.3); }
-.hdr-badge.evp     { background: var(--evp-dim);    color: var(--evp);    border-color: rgba(255,110,64,.4); display:none; animation: flash 0.6s infinite; }
-.hdr-badge.alert   { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(255,202,40,.3); display:none; }
-@keyframes flash { 0%,100%{opacity:1} 50%{opacity:.5} }
-
-.topbar-time {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: var(--muted);
-  min-width: 80px;
-  text-align: right;
-}
-
-/* ══════════════════════════════════════════
-   MAIN LAYOUT — 3-column
-══════════════════════════════════════════ */
-.layout {
-  display: grid;
-  grid-template-columns: 248px 1fr 272px;
-  height: calc(100vh - 52px);
-  overflow: hidden;
-}
-
-/* ══════════════════════════════════════════
-   SHARED PANEL STYLES
-══════════════════════════════════════════ */
-.panel {
-  background: var(--surface);
-  overflow-y: auto;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.panel::-webkit-scrollbar { width: 3px; }
-.panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-.left-panel  { border-right: 1px solid var(--border); }
-.right-panel { border-left:  1px solid var(--border); }
-
-/* Section header */
-.section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.section-icon {
-  width: 22px; height: 22px;
-  border-radius: 5px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.section-icon.blue   { background: var(--blue-dim);   border: 1px solid rgba(64,196,255,.2); }
-.section-icon.green  { background: var(--green-dim);  border: 1px solid rgba(0,230,118,.2); }
-.section-icon.yellow { background: var(--yellow-dim); border: 1px solid rgba(255,202,40,.2); }
-.section-icon.orange { background: var(--orange-dim); border: 1px solid rgba(255,143,0,.2); }
-.section-icon.red    { background: var(--red-dim);    border: 1px solid rgba(255,82,82,.2); }
-.section-icon.evp    { background: var(--evp-dim);    border: 1px solid rgba(255,110,64,.2); }
-.section-icon.purple { background: var(--purple-dim); border: 1px solid rgba(206,147,216,.2); }
-
-.section-title { font-size: 10px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1.2px; }
-.section-desc  { font-size: 9px; color: var(--muted); margin-top: 1px; }
-
-.divider { height: 1px; background: var(--border); margin: 2px 0; }
-
-/* ══════════════════════════════════════════
-   KPI CARDS
-══════════════════════════════════════════ */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.kpi-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 10px 8px;
-  position: relative;
-  overflow: hidden;
-  transition: border-color .2s;
-}
-.kpi-card:hover { border-color: var(--border2); }
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  border-radius: 8px 8px 0 0;
-}
-.kpi-card.blue::before   { background: linear-gradient(90deg, var(--blue), transparent); }
-.kpi-card.yellow::before { background: linear-gradient(90deg, var(--yellow), transparent); }
-.kpi-card.purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
-.kpi-card.evp::before    { background: linear-gradient(90deg, var(--evp), transparent); }
-
-.kpi-icon  { font-size: 14px; margin-bottom: 6px; }
-.kpi-val   { font-size: 26px; font-weight: 800; line-height: 1; font-family: 'JetBrains Mono', monospace; }
-.kpi-card.blue .kpi-val   { color: var(--blue); }
-.kpi-card.yellow .kpi-val { color: var(--yellow); }
-.kpi-card.purple .kpi-val { color: var(--purple); }
-.kpi-card.evp .kpi-val    { color: var(--evp); }
-.kpi-name  { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-top: 4px; }
-.kpi-help  { font-size: 9px; color: var(--muted2); margin-top: 2px; font-style: italic; }
-
-/* ══════════════════════════════════════════
-   SIGNAL PANEL — SPaT
-══════════════════════════════════════════ */
-.signal-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-}
-
-.sig-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  transition: border-color .2s;
-}
-
-.sig-dir   { font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 600; letter-spacing: 1px; }
-
-.sig-lamp-wrap {
-  width: 28px; height: 70px;
-  background: #0a0f15;
-  border: 1px solid var(--border2);
-  border-radius: 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-evenly;
-  padding: 4px 0;
-}
-.sig-lamp {
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: #1a2535;
-  border: 1px solid var(--border2);
-  transition: background .25s, box-shadow .25s;
-}
-.sig-lamp.red-on    { background: #ff5252; box-shadow: 0 0 10px #ff5252; }
-.sig-lamp.yellow-on { background: #ffca28; box-shadow: 0 0 10px #ffca28; }
-.sig-lamp.green-on  { background: #00e676; box-shadow: 0 0 12px #00e676; }
-
-.sig-state-text { font-size: 8px; font-weight: 700; letter-spacing: .5px; }
-.sig-state-text.green  { color: var(--green); }
-.sig-state-text.red    { color: var(--red); }
-.sig-state-text.yellow { color: var(--yellow); }
-
-/* Phase countdown bar */
-.phase-bar-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 10px;
-}
-.phase-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 6px;
-}
-.phase-name { font-size: 11px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
-.phase-timer { font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.phase-timer.green  { color: var(--green); }
-.phase-timer.yellow { color: var(--yellow); }
-.phase-timer.evp    { color: var(--evp); }
-
-.phase-track { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
-.phase-fill  { height: 100%; border-radius: 99px; transition: width .2s, background .3s; }
-
-.phase-help {
-  margin-top: 6px;
-  font-size: 9px;
-  color: var(--muted);
-  font-style: italic;
-}
-
-.queue-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
-.queue-pill {
-  flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 4px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.queue-label { font-size: 9px; color: var(--muted); text-transform: uppercase; }
-.queue-val   { font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); }
-
-/* ══════════════════════════════════════════
-   SCENARIO BUTTONS
-══════════════════════════════════════════ */
-.scenario-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all .2s;
-  text-align: left;
-}
-.scenario-btn:hover { border-color: var(--border2); }
-
-.scenario-btn.emergency { border-color: rgba(255,110,64,.35); }
-.scenario-btn.emergency:hover { background: var(--evp-dim); border-color: rgba(255,110,64,.6); box-shadow: 0 0 12px rgba(255,110,64,.15); }
-
-.scenario-btn.hazard { border-color: rgba(255,202,40,.3); }
-.scenario-btn.hazard:hover { background: var(--yellow-dim); border-color: rgba(255,202,40,.6); }
-
-.scenario-btn.rush { border-color: rgba(255,143,0,.3); }
-.scenario-btn.rush:hover { background: var(--orange-dim); border-color: rgba(255,143,0,.6); }
-.scenario-btn.rush.active { background: var(--orange-dim); border-color: var(--orange); }
-
-.btn-icon {
-  width: 30px; height: 30px;
-  border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-.btn-icon.evp    { background: rgba(255,110,64,.15); }
-.btn-icon.yellow { background: rgba(255,202,40,.15); }
-.btn-icon.orange { background: rgba(255,143,0,.15); }
-
-.btn-label { font-size: 11px; font-weight: 600; color: var(--text); }
-.btn-desc  { font-size: 9px; color: var(--muted); margin-top: 1px; }
-
-/* ══════════════════════════════════════════
-   SIM CONTROLS
-══════════════════════════════════════════ */
-.sim-controls {
-  display: flex;
-  gap: 6px;
-}
-.sim-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 6px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text);
-  transition: all .2s;
-}
-.sim-btn:hover { border-color: var(--border2); color: var(--blue); border-color: rgba(64,196,255,.4); }
-
-.speed-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.speed-label { font-size: 10px; color: var(--muted); }
-.speed-val { font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--blue); }
-
-input[type=range] {
-  width: 100%;
-  accent-color: var(--blue);
-  cursor: pointer;
-}
-
-/* ══════════════════════════════════════════
-   LDM STATS
-══════════════════════════════════════════ */
-.ldm-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-}
-.ldm-stat {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 8px;
-}
-.ldm-val  { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); }
-.ldm-val.danger { color: var(--red); }
-.ldm-key  { font-size: 9px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
-.ldm-desc { font-size: 8px; color: var(--muted2); margin-top: 1px; font-style: italic; }
-
-/* ══════════════════════════════════════════
-   CANVAS / MAP AREA
-══════════════════════════════════════════ */
-.map-area {
-  position: relative;
-  background: radial-gradient(ellipse at center, #0c1820 0%, #060b10 70%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.map-area::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(rgba(64,196,255,.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(64,196,255,.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-}
-
-canvas {
-  display: block;
-  border-radius: 4px;
-  box-shadow: 0 0 40px rgba(0,0,0,.8), 0 0 1px rgba(64,196,255,.2);
-}
-
-/* ── Map legend overlay ── */
-.map-legend {
-  position: absolute;
-  bottom: 14px;
-  left: 14px;
-  background: rgba(6,11,16,.85);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  backdrop-filter: blur(8px);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.legend-title { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
-.legend-row { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--text); }
-.legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-.legend-dot.vehicle   { background: #40c4ff; }
-.legend-dot.emergency { background: #ff6e40; }
-.legend-dot.pedestrian{ background: #ce93d8; border-radius: 50%; }
-.legend-dot.rsu       { background: #40c4ff; border-radius: 50%; border: 1px solid rgba(64,196,255,.4); }
-.legend-dot.signal    { background: #00e676; border-radius: 50%; }
-
-/* ── Corner info bar ── */
-.map-info-bar {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: flex-end;
-}
-.map-chip {
-  background: rgba(6,11,16,.85);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 10px;
-  font-size: 10px;
-  color: var(--muted);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.map-chip span { color: var(--text); font-weight: 600; }
-
-/* ── Banners ── */
-.alert-banner {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: none;
-  z-index: 20;
-  animation: slidein .25s ease;
-}
-@keyframes slidein { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-
-.banner-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 18px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 13px;
-  backdrop-filter: blur(12px);
-  border: 1px solid;
-  white-space: nowrap;
-}
-.banner-inner.fcw { background: rgba(255,82,82,.9); border-color: var(--red); color: #fff; box-shadow: 0 4px 20px rgba(255,82,82,.4); }
-
-.evp-banner {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: none;
-  z-index: 20;
-  animation: slidein .25s ease;
-}
-.banner-inner.evp { background: rgba(255,110,64,.9); border-color: var(--evp); color: #fff; box-shadow: 0 4px 20px rgba(255,110,64,.4); }
-
-/* ══════════════════════════════════════════
-   RIGHT PANEL FEEDS
-══════════════════════════════════════════ */
-.feed-box {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  max-height: 185px;
-  display: flex;
-  flex-direction: column;
-}
-.feed-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: var(--card2);
-  border-bottom: 1px solid var(--border);
-}
-.feed-label { font-size: 9px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .8px; }
-.feed-live  { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--green); }
-.feed-live-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: blink 1s infinite; }
-.feed-content { overflow-y: auto; flex: 1; padding: 5px; display: flex; flex-direction: column; gap: 3px; }
-.feed-content::-webkit-scrollbar { width: 2px; }
-.feed-content::-webkit-scrollbar-thumb { background: var(--border2); }
-
-/* Packet entry */
-.pkt {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  background: var(--bg);
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9.5px;
-  color: var(--text);
-  border-left: 2px solid;
-}
-.pkt.bsm       { border-color: var(--blue); }
-.pkt.vru       { border-color: var(--purple); }
-.pkt.rsu       { border-color: var(--orange); }
-.pkt.emergency { border-color: var(--evp); }
-.pkt-type { font-weight: 700; font-size: 8px; padding: 1px 5px; border-radius: 3px; }
-.pkt-type.bsm       { background: var(--blue-dim);   color: var(--blue); }
-.pkt-type.vru       { background: var(--purple-dim); color: var(--purple); }
-.pkt-type.emergency { background: var(--evp-dim);    color: var(--evp); }
-.pkt-id   { color: var(--muted); }
-.pkt-data { color: var(--text); margin-left: auto; }
-
-/* Alert entry */
-.ai-entry {
-  padding: 5px 8px;
-  background: var(--bg);
-  border-radius: 5px;
-  border-left: 2px solid;
-  font-size: 10px;
-}
-.ai-entry.critical { border-color: var(--red); }
-.ai-entry.warning  { border-color: var(--yellow); }
-.ai-top { display: flex; justify-content: space-between; align-items: center; }
-.ai-type { font-weight: 700; font-size: 9px; }
-.ai-type.critical { color: var(--red); }
-.ai-type.warning  { color: var(--yellow); }
-.ai-latency { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--green); }
-.ai-msg { color: var(--text); margin-top: 2px; font-size: 10px; }
-.ai-ttc { color: var(--muted); font-size: 9px; font-family: 'JetBrains Mono', monospace; }
-
-/* EVP event entry */
-.evp-entry {
-  padding: 6px 8px;
-  background: var(--bg);
-  border-radius: 5px;
-  border-left: 2px solid var(--evp);
-  font-size: 10px;
-  color: var(--text);
-  line-height: 1.4;
-}
-
-/* Scenario entry */
-.sc-entry {
-  padding: 5px 8px;
-  background: var(--bg);
-  border-radius: 5px;
-  border-left: 2px solid var(--border2);
-  font-size: 10px;
-  color: var(--text);
-  line-height: 1.4;
-}
-
-/* empty state */
-.empty-state { text-align: center; color: var(--muted2); font-size: 10px; padding: 16px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MODL-QoS — Multi-Objective Deep Learning Framework</title>
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        blackbg: '#000000',
+                        darkcard: '#0D0D0D',
+                        darkcard2: '#141414',
+                        bordergray: '#262626',
+                        bordergraylight: '#404040',
+                        silvertext: '#A3A3A3',
+                        mutedgray: '#737373'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom monochrome scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #333333; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555555; }
+        .queue-bar-transition { transition: width 0.3s ease, background-color 0.3s ease; }
+        .glow-white { box-shadow: 0 0 20px rgba(255, 255, 255, 0.12); }
+    </style>
 </head>
-<body>
+<body class="bg-black text-white min-h-screen font-sans antialiased selection:bg-white selection:text-black">
 
-<!-- ═══════════════════════════════════
-     TOPBAR
-═══════════════════════════════════ -->
-<div class="topbar">
-  <div class="topbar-logo">
-    <div class="icon">🛰️</div>
-    <div>
-      <div class="title">AI-Powered V2X Network</div>
-      <div class="subtitle">Traffic Ops / PSAP Dashboard — Smart City Intersection Control</div>
-    </div>
-  </div>
-  <div class="topbar-divider"></div>
-  <div class="topbar-status">
-    <div class="pulse-dot"></div>
-    <span class="status-label">5G MEC LIVE</span>
-  </div>
-  <div class="topbar-badges">
-    <div class="hdr-badge phase">
-      <span>🚦</span>
-      <span id="hdr-phase">NS_GREEN</span>
-    </div>
-    <div class="hdr-badge evp" id="hdr-evp">
-      <span>🚨</span>
-      <span>EVP ACTIVE</span>
-    </div>
-    <div class="hdr-badge alert" id="hdr-alert">
-      <span>⚠️</span>
-      <span>ALERTS</span>
-    </div>
-    <div class="topbar-time" id="hdr-time">--:--:--</div>
-  </div>
-</div>
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-bordergray bg-black/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 rounded-md bg-white text-black flex items-center justify-center font-black text-lg tracking-wider">
+                    Q
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-sm font-bold text-white tracking-widest uppercase">MODL-QoS</h1>
+                        <span class="text-[10px] px-2 py-0.5 rounded border border-bordergraylight bg-neutral-900 text-silvertext font-mono font-medium">PROJECT 42</span>
+                    </div>
+                    <p class="text-[11px] text-mutedgray hidden sm:block">Multi-Objective Deep Learning Framework for QoS Optimization</p>
+                </div>
+            </div>
 
-<!-- ═══════════════════════════════════
-     MAIN LAYOUT
-═══════════════════════════════════ -->
-<div class="layout">
+            <!-- Controller Selection Tabs -->
+            <div class="flex items-center space-x-1.5 bg-neutral-950 p-1 rounded-lg border border-bordergray text-xs">
+                <button onclick="setControllerMode('modl')" id="btn-ctrl-modl" class="px-3 py-1.5 rounded font-semibold bg-white text-black shadow transition">
+                    MODL-QoS (Ours)
+                </button>
+                <button onclick="setControllerMode('fifo')" id="btn-ctrl-fifo" class="px-3 py-1.5 rounded font-medium text-silvertext hover:text-white hover:bg-neutral-900 transition">
+                    FIFO Drop-Tail
+                </button>
+                <button onclick="setControllerMode('wfq')" id="btn-ctrl-wfq" class="px-3 py-1.5 rounded font-medium text-silvertext hover:text-white hover:bg-neutral-900 transition">
+                    Static WFQ
+                </button>
+                <button onclick="setControllerMode('red')" id="btn-ctrl-red" class="px-3 py-1.5 rounded font-medium text-silvertext hover:text-white hover:bg-neutral-900 transition">
+                    RED+DWRR
+                </button>
+                <button onclick="setControllerMode('greedy')" id="btn-ctrl-greedy" class="px-3 py-1.5 rounded font-medium text-silvertext hover:text-white hover:bg-neutral-900 transition">
+                    Greedy DL
+                </button>
+            </div>
 
-<!-- ═══════════════  LEFT PANEL  ═══════════════ -->
-<div class="panel left-panel">
-
-  <!-- KPI Section -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon blue">📊</div>
-      <div>
-        <div class="section-title">Performance KPIs</div>
-        <div class="section-desc">Aggregated from Mobility Data Lake</div>
-      </div>
-    </div>
-    <div class="kpi-grid">
-      <div class="kpi-card blue">
-        <div class="kpi-icon">🚗</div>
-        <div class="kpi-val" id="kpi-vehicles">0</div>
-        <div class="kpi-name">Vehicles Processed</div>
-        <div class="kpi-help">Total cars that passed through</div>
-      </div>
-      <div class="kpi-card yellow">
-        <div class="kpi-icon">⚡</div>
-        <div class="kpi-val" id="kpi-alerts">0</div>
-        <div class="kpi-name">Safety Alerts</div>
-        <div class="kpi-help">FCW + PCW + EVP alerts fired</div>
-      </div>
-      <div class="kpi-card purple">
-        <div class="kpi-icon">🔄</div>
-        <div class="kpi-val" id="kpi-cycles">0</div>
-        <div class="kpi-name">Signal Cycles</div>
-        <div class="kpi-help">Complete NS→EW phase rotations</div>
-      </div>
-      <div class="kpi-card evp">
-        <div class="kpi-icon">🚑</div>
-        <div class="kpi-val" id="kpi-evp">0</div>
-        <div class="kpi-name">EVP Clearings</div>
-        <div class="kpi-help">Emergency corridors granted</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- SPaT Signal Phase -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon green">🚦</div>
-      <div>
-        <div class="section-title">SPaT — Signal Phase &amp; Timing</div>
-        <div class="section-desc">Adaptive signal controller state</div>
-      </div>
-    </div>
-
-    <!-- 4-direction signal lamps -->
-    <div class="signal-grid">
-      <div class="sig-card">
-        <div class="sig-dir">↓ NORTH</div>
-        <div class="sig-lamp-wrap">
-          <div class="sig-lamp" id="lamp-n-red"></div>
-          <div class="sig-lamp" id="lamp-n-yellow"></div>
-          <div class="sig-lamp" id="lamp-n-green"></div>
+            <!-- Controls and Status -->
+            <div class="flex items-center space-x-3">
+                <button onclick="togglePause()" id="pause-btn" class="p-2 rounded border border-bordergray bg-neutral-900 hover:bg-neutral-800 transition text-xs flex items-center space-x-1" title="Pause / Resume">
+                    <span id="pause-icon">⏸</span>
+                </button>
+                <button onclick="openBenchmarkModal()" class="px-3 py-1.5 rounded border border-white bg-white hover:bg-neutral-200 text-black text-xs font-bold shadow transition flex items-center space-x-1">
+                    <span>⚡ Benchmark</span>
+                </button>
+                <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded border border-bordergraylight bg-neutral-900 text-white text-xs font-mono">
+                    <span class="h-1.5 w-1.5 rounded-full bg-white animate-pulse"></span>
+                    <span id="ws-status">LIVE</span>
+                </div>
+            </div>
         </div>
-        <div class="sig-state-text" id="sig-north-text">RED</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-dir">↑ SOUTH</div>
-        <div class="sig-lamp-wrap">
-          <div class="sig-lamp" id="lamp-s-red"></div>
-          <div class="sig-lamp" id="lamp-s-yellow"></div>
-          <div class="sig-lamp" id="lamp-s-green"></div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Problem Statement Banner (Monochrome Minimalist) -->
+        <div class="bg-darkcard border border-bordergray rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="flex items-start space-x-3.5">
+                <div class="p-2 rounded-lg bg-neutral-900 border border-bordergraylight text-white text-base">
+                    ⚖
+                </div>
+                <div>
+                    <h2 class="text-xs font-bold text-white tracking-wider uppercase">QoS Parameter Conflict & Pareto Trade-Off Optimization</h2>
+                    <p class="text-xs text-silvertext mt-1 leading-relaxed max-w-3xl">
+                        Optimizing one QoS metric directly degrades others (e.g., maximizing throughput causes bufferbloat, destroying latency; aggressive packet dropping minimizes delay but ruins packet reliability). MODL-QoS uses <strong>Preference-Conditioned Pareto Actor-Critic (PC-PAC)</strong> to dynamically orchestrate bandwidth slices and AQM drop thresholds across heterogeneous flows.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+                <span class="text-xs text-mutedgray font-mono uppercase">Scenario:</span>
+                <select id="scenario-selector" onchange="changeScenario(this.value)" class="bg-black border border-bordergraylight rounded text-xs text-white px-3 py-1.5 focus:outline-none focus:border-white font-mono">
+                    <option value="Normal Traffic">Standard Traffic</option>
+                    <option value="congested_all">All Queues Congested</option>
+                    <option value="voip_rush">VoIP Congestion Rush</option>
+                    <option value="video_surge">Video Surge (Bursty)</option>
+                    <option value="iot_storm">IoT Telemetry Storm</option>
+                    <option value="bulk_download">Bulk Download Spike</option>
+                </select>
+            </div>
         </div>
-        <div class="sig-state-text" id="sig-south-text">RED</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-dir">← EAST</div>
-        <div class="sig-lamp-wrap">
-          <div class="sig-lamp" id="lamp-e-red"></div>
-          <div class="sig-lamp" id="lamp-e-yellow"></div>
-          <div class="sig-lamp" id="lamp-e-green"></div>
+
+        <!-- 5 Key QoS Metric Cards (Monochrome High Contrast) -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <!-- 1. Throughput -->
+            <div class="bg-darkcard border border-bordergray rounded-xl p-4 hover:border-white transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-silvertext uppercase tracking-wider">Throughput</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border border-bordergraylight bg-neutral-900 text-white font-mono">MAX</span>
+                </div>
+                <div class="mt-2.5 flex items-baseline space-x-1">
+                    <span id="kpi-throughput" class="text-2xl font-black text-white font-mono">0.0</span>
+                    <span class="text-[11px] text-mutedgray">Mbps</span>
+                </div>
+                <div class="mt-2.5 w-full bg-neutral-900 rounded-full h-1 overflow-hidden border border-bordergray">
+                    <div id="kpi-throughput-bar" class="bg-white h-1 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-[10px] text-mutedgray font-mono">
+                    <span>Target: 40 Mbps</span>
+                    <span id="kpi-util">Util: 0%</span>
+                </div>
+            </div>
+
+            <!-- 2. Delay / Latency -->
+            <div class="bg-darkcard border border-bordergray rounded-xl p-4 hover:border-white transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-silvertext uppercase tracking-wider">Delay</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border border-bordergraylight bg-neutral-900 text-white font-mono">MIN</span>
+                </div>
+                <div class="mt-2.5 flex items-baseline space-x-1">
+                    <span id="kpi-delay" class="text-2xl font-black text-white font-mono">0.0</span>
+                    <span class="text-[11px] text-mutedgray">ms</span>
+                </div>
+                <div class="mt-2.5 w-full bg-neutral-900 rounded-full h-1 overflow-hidden border border-bordergray">
+                    <div id="kpi-delay-bar" class="bg-white h-1 rounded-full transition-all duration-300" style="width: 20%"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-[10px] text-mutedgray font-mono">
+                    <span>Target: &lt; 35ms</span>
+                    <span id="kpi-delay-badge" class="text-white">OPTIMAL</span>
+                </div>
+            </div>
+
+            <!-- 3. Jitter -->
+            <div class="bg-darkcard border border-bordergray rounded-xl p-4 hover:border-white transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-silvertext uppercase tracking-wider">Jitter (RFC 3550)</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border border-bordergraylight bg-neutral-900 text-white font-mono">MIN</span>
+                </div>
+                <div class="mt-2.5 flex items-baseline space-x-1">
+                    <span id="kpi-jitter" class="text-2xl font-black text-white font-mono">0.0</span>
+                    <span class="text-[11px] text-mutedgray">ms</span>
+                </div>
+                <div class="mt-2.5 w-full bg-neutral-900 rounded-full h-1 overflow-hidden border border-bordergray">
+                    <div id="kpi-jitter-bar" class="bg-white h-1 rounded-full transition-all duration-300" style="width: 15%"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-[10px] text-mutedgray font-mono">
+                    <span>Target: &lt; 5ms</span>
+                    <span id="kpi-jitter-badge" class="text-white">STABLE</span>
+                </div>
+            </div>
+
+            <!-- 4. Packet Loss -->
+            <div class="bg-darkcard border border-bordergray rounded-xl p-4 hover:border-white transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-silvertext uppercase tracking-wider">Packet Loss</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border border-bordergraylight bg-neutral-900 text-white font-mono">MIN</span>
+                </div>
+                <div class="mt-2.5 flex items-baseline space-x-1">
+                    <span id="kpi-loss" class="text-2xl font-black text-white font-mono">0.00</span>
+                    <span class="text-[11px] text-mutedgray">%</span>
+                </div>
+                <div class="mt-2.5 w-full bg-neutral-900 rounded-full h-1 overflow-hidden border border-bordergray">
+                    <div id="kpi-loss-bar" class="bg-white h-1 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-[10px] text-mutedgray font-mono">
+                    <span>Target: &lt; 1%</span>
+                    <span id="kpi-dropped-pkts">Drops: 0</span>
+                </div>
+            </div>
+
+            <!-- 5. Jain's Fairness Index -->
+            <div class="bg-darkcard border border-bordergray rounded-xl p-4 hover:border-white transition col-span-2 md:col-span-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-silvertext uppercase tracking-wider">Fairness (JFI)</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border border-bordergraylight bg-neutral-900 text-white font-mono">MAX</span>
+                </div>
+                <div class="mt-2.5 flex items-baseline space-x-1">
+                    <span id="kpi-fairness" class="text-2xl font-black text-white font-mono">1.00</span>
+                    <span class="text-[11px] text-mutedgray">/ 1.0</span>
+                </div>
+                <div class="mt-2.5 w-full bg-neutral-900 rounded-full h-1 overflow-hidden border border-bordergray">
+                    <div id="kpi-fairness-bar" class="bg-white h-1 rounded-full transition-all duration-300" style="width: 100%"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-[10px] text-mutedgray font-mono">
+                    <span>Bound: [0.25, 1.0]</span>
+                    <span id="kpi-fairness-badge" class="text-white">EQUITABLE</span>
+                </div>
+            </div>
         </div>
-        <div class="sig-state-text" id="sig-east-text">RED</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-dir">→ WEST</div>
-        <div class="sig-lamp-wrap">
-          <div class="sig-lamp" id="lamp-w-red"></div>
-          <div class="sig-lamp" id="lamp-w-yellow"></div>
-          <div class="sig-lamp" id="lamp-w-green"></div>
+
+        <!-- Center Stage: Charts & Queues (Monochrome Grayscale) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+            <!-- Left: Radar / Spider Chart -->
+            <div class="lg:col-span-4 bg-darkcard border border-bordergray rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                            <span>◈</span>
+                            <span>5-D Pareto Objective Radar</span>
+                        </h3>
+                        <span class="text-[9px] px-2 py-0.5 rounded border border-bordergray bg-neutral-900 text-silvertext font-mono">[0, 1] NORMALIZED</span>
+                    </div>
+                    <p class="text-[11px] text-silvertext mt-1">
+                        Multivariate coverage across Throughput, Delay, Jitter, Loss, and Fairness.
+                    </p>
+                </div>
+                <div class="my-3 relative h-64 flex items-center justify-center">
+                    <canvas id="radarChart"></canvas>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-bordergray font-mono">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="h-2 w-2 rounded-full bg-white"></span>
+                        <span class="text-silvertext">Active Policy</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="h-2 w-2 rounded-full bg-mutedgray"></span>
+                        <span class="text-silvertext">Ideal Front [1,1,1,1,1]</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle: Live Router Queue Buffers & AQM Thresholds -->
+            <div class="lg:col-span-4 bg-darkcard border border-bordergray rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                            <span>◈</span>
+                            <span>Router Queue Buffers & AQM</span>
+                        </h3>
+                        <span class="text-[10px] font-mono text-mutedgray">Depth: 120 pkts</span>
+                    </div>
+                    <p class="text-[11px] text-silvertext mt-1">
+                        Per-class queue depth with deep learning controlled scheduling quantum and AQM thresholds.
+                    </p>
+                </div>
+
+                <!-- 4 Traffic Class Queue Occupancies -->
+                <div class="space-y-3.5 my-3" id="queue-bars-container">
+                    <!-- Class 0: VoIP -->
+                    <div class="p-2.5 rounded-lg bg-neutral-950 border border-bordergray">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-white flex items-center space-x-1.5">
+                                <span class="text-mutedgray">01</span><span>VoIP / Audio</span>
+                            </span>
+                            <span id="q-stat-0" class="text-silvertext font-mono text-[11px]">0 / 120 pkts</span>
+                        </div>
+                        <div class="mt-1.5 relative w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-bordergray">
+                            <div id="q-bar-0" class="h-2 rounded-full bg-white queue-bar-transition" style="width: 0%"></div>
+                            <div id="q-thresh-0" class="absolute top-0 bottom-0 w-0.5 bg-silvertext" style="left: 95%" title="AQM Drop Threshold"></div>
+                        </div>
+                        <div class="mt-1.5 flex justify-between text-[10px] text-mutedgray font-mono">
+                            <span id="q-weight-0">Weight: 25%</span>
+                            <span id="q-delay-0">Delay: 12ms</span>
+                            <span id="q-loss-0">Loss: 0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Class 1: Video Streaming -->
+                    <div class="p-2.5 rounded-lg bg-neutral-950 border border-bordergray">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-white flex items-center space-x-1.5">
+                                <span class="text-mutedgray">02</span><span>Video Streaming</span>
+                            </span>
+                            <span id="q-stat-1" class="text-silvertext font-mono text-[11px]">0 / 120 pkts</span>
+                        </div>
+                        <div class="mt-1.5 relative w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-bordergray">
+                            <div id="q-bar-1" class="h-2 rounded-full bg-neutral-300 queue-bar-transition" style="width: 0%"></div>
+                            <div id="q-thresh-1" class="absolute top-0 bottom-0 w-0.5 bg-silvertext" style="left: 95%"></div>
+                        </div>
+                        <div class="mt-1.5 flex justify-between text-[10px] text-mutedgray font-mono">
+                            <span id="q-weight-1">Weight: 35%</span>
+                            <span id="q-delay-1">Delay: 35ms</span>
+                            <span id="q-loss-1">Loss: 0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Class 2: Mission-Critical IoT -->
+                    <div class="p-2.5 rounded-lg bg-neutral-950 border border-bordergray">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-white flex items-center space-x-1.5">
+                                <span class="text-mutedgray">03</span><span>Critical IoT</span>
+                            </span>
+                            <span id="q-stat-2" class="text-silvertext font-mono text-[11px]">0 / 120 pkts</span>
+                        </div>
+                        <div class="mt-1.5 relative w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-bordergray">
+                            <div id="q-bar-2" class="h-2 rounded-full bg-neutral-400 queue-bar-transition" style="width: 0%"></div>
+                            <div id="q-thresh-2" class="absolute top-0 bottom-0 w-0.5 bg-silvertext" style="left: 95%"></div>
+                        </div>
+                        <div class="mt-1.5 flex justify-between text-[10px] text-mutedgray font-mono">
+                            <span id="q-weight-2">Weight: 20%</span>
+                            <span id="q-delay-2">Delay: 8ms</span>
+                            <span id="q-loss-2">Loss: 0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Class 3: Best Effort (FTP) -->
+                    <div class="p-2.5 rounded-lg bg-neutral-950 border border-bordergray">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-white flex items-center space-x-1.5">
+                                <span class="text-mutedgray">04</span><span>Best Effort (FTP)</span>
+                            </span>
+                            <span id="q-stat-3" class="text-silvertext font-mono text-[11px]">0 / 120 pkts</span>
+                        </div>
+                        <div class="mt-1.5 relative w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-bordergray">
+                            <div id="q-bar-3" class="h-2 rounded-full bg-neutral-500 queue-bar-transition" style="width: 0%"></div>
+                            <div id="q-thresh-3" class="absolute top-0 bottom-0 w-0.5 bg-silvertext" style="left: 95%"></div>
+                        </div>
+                        <div class="mt-1.5 flex justify-between text-[10px] text-mutedgray font-mono">
+                            <span id="q-weight-3">Weight: 20%</span>
+                            <span id="q-delay-3">Delay: 65ms</span>
+                            <span id="q-loss-3">Loss: 0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instant Traffic Spikes -->
+                <div class="pt-2 border-t border-bordergray flex items-center justify-between text-[11px]">
+                    <span class="text-mutedgray uppercase font-mono text-[10px]">Inject Burst:</span>
+                    <div class="flex space-x-1.5">
+                        <button onclick="triggerTrafficSpike(0)" class="px-2 py-0.5 rounded border border-bordergray bg-neutral-900 text-white hover:bg-white hover:text-black transition font-mono text-[10px]">VoIP</button>
+                        <button onclick="triggerTrafficSpike(1)" class="px-2 py-0.5 rounded border border-bordergray bg-neutral-900 text-white hover:bg-white hover:text-black transition font-mono text-[10px]">Video</button>
+                        <button onclick="triggerTrafficSpike(2)" class="px-2 py-0.5 rounded border border-bordergray bg-neutral-900 text-white hover:bg-white hover:text-black transition font-mono text-[10px]">IoT</button>
+                        <button onclick="triggerTrafficSpike(3)" class="px-2 py-0.5 rounded border border-bordergray bg-neutral-900 text-white hover:bg-white hover:text-black transition font-mono text-[10px]">FTP</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Real-Time Rolling Latency & Jitter Time-Series Chart -->
+            <div class="lg:col-span-4 bg-darkcard border border-bordergray rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                            <span>◈</span>
+                            <span>Latency & Jitter Telemetry</span>
+                        </h3>
+                        <span class="text-[9px] px-2 py-0.5 rounded border border-bordergray bg-neutral-900 text-silvertext font-mono">MS VS TIME</span>
+                    </div>
+                    <p class="text-[11px] text-silvertext mt-1">
+                        High throughput without bufferbloat latency spikes under MODL control.
+                    </p>
+                </div>
+                <div class="my-3 relative h-64 flex items-center justify-center">
+                    <canvas id="timeSeriesChart"></canvas>
+                </div>
+                <div class="pt-2 border-t border-bordergray flex justify-between text-[10px] text-mutedgray font-mono">
+                    <span id="ts-avg-delay">Avg Delay: -- ms</span>
+                    <span id="ts-avg-jitter">Avg Jitter: -- ms</span>
+                </div>
+            </div>
         </div>
-        <div class="sig-state-text" id="sig-west-text">RED</div>
-      </div>
-    </div>
 
-    <!-- Phase progress bar -->
-    <div class="phase-bar-card" style="margin-top:8px;">
-      <div class="phase-row">
-        <div>
-          <div class="phase-name" id="phase-name">NS_GREEN</div>
-          <div style="font-size:9px;color:var(--muted);margin-top:1px;">Current active signal phase</div>
+        <!-- Preference Steering & Pareto Profile Control (Monochrome Sliders) -->
+        <div class="bg-darkcard border border-bordergray rounded-xl p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-bordergray gap-4">
+                <div>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                        <span>◈</span>
+                        <span>Pareto Preference Conditioning Vector (α-Steering)</span>
+                    </h3>
+                    <p class="text-[11px] text-silvertext mt-1">
+                        Dynamically steer the Deep Neural Network along the multi-objective Pareto Frontier without retraining.
+                    </p>
+                </div>
+
+                <!-- Preset Profiles -->
+                <div class="flex flex-wrap gap-2 text-xs font-mono">
+                    <button onclick="applyPreferenceProfile('balanced')" id="prof-balanced" class="px-3 py-1.5 rounded border border-white bg-white text-black font-bold">
+                        Balanced
+                    </button>
+                    <button onclick="applyPreferenceProfile('gaming_urllc')" id="prof-gaming_urllc" class="px-3 py-1.5 rounded border border-bordergray bg-neutral-900 text-silvertext hover:text-white hover:border-bordergraylight">
+                        Low Latency (URLLC)
+                    </button>
+                    <button onclick="applyPreferenceProfile('streaming')" id="prof-streaming" class="px-3 py-1.5 rounded border border-bordergray bg-neutral-900 text-silvertext hover:text-white hover:border-bordergraylight">
+                        Max Throughput
+                    </button>
+                    <button onclick="applyPreferenceProfile('fairness_critical')" id="prof-fairness_critical" class="px-3 py-1.5 rounded border border-bordergray bg-neutral-900 text-silvertext hover:text-white hover:border-bordergraylight">
+                        Enterprise Fair-Share
+                    </button>
+                </div>
+            </div>
+
+            <!-- 5 Sliders for the Preference Weights (Monochrome Minimalist) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 mt-6">
+                <!-- Weight: Throughput -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-bold text-white uppercase tracking-wider font-mono text-[11px]">Throughput (w_T)</span>
+                        <span id="slider-val-0" class="font-mono text-white">0.20</span>
+                    </div>
+                    <input type="range" id="pref-slider-0" min="0.05" max="0.80" step="0.05" value="0.20" oninput="onSliderChange()" class="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white">
+                    <p class="text-[10px] text-mutedgray">Prioritizes link bandwidth utilization</p>
+                </div>
+
+                <!-- Weight: Delay -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-bold text-white uppercase tracking-wider font-mono text-[11px]">Delay (w_D)</span>
+                        <span id="slider-val-1" class="font-mono text-white">0.20</span>
+                    </div>
+                    <input type="range" id="pref-slider-1" min="0.05" max="0.80" step="0.05" value="0.20" oninput="onSliderChange()" class="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white">
+                    <p class="text-[10px] text-mutedgray">Minimizes queue dwell latency</p>
+                </div>
+
+                <!-- Weight: Jitter -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-bold text-white uppercase tracking-wider font-mono text-[11px]">Jitter (w_J)</span>
+                        <span id="slider-val-2" class="font-mono text-white">0.20</span>
+                    </div>
+                    <input type="range" id="pref-slider-2" min="0.05" max="0.80" step="0.05" value="0.20" oninput="onSliderChange()" class="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white">
+                    <p class="text-[10px] text-mutedgray">Smoothes inter-arrival variance</p>
+                </div>
+
+                <!-- Weight: Packet Loss -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-bold text-white uppercase tracking-wider font-mono text-[11px]">Packet Loss (w_L)</span>
+                        <span id="slider-val-3" class="font-mono text-white">0.20</span>
+                    </div>
+                    <input type="range" id="pref-slider-3" min="0.05" max="0.80" step="0.05" value="0.20" oninput="onSliderChange()" class="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white">
+                    <p class="text-[10px] text-mutedgray">Prevents buffer overflow drops</p>
+                </div>
+
+                <!-- Weight: Fairness -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-bold text-white uppercase tracking-wider font-mono text-[11px]">Fairness (w_F)</span>
+                        <span id="slider-val-4" class="font-mono text-white">0.20</span>
+                    </div>
+                    <input type="range" id="pref-slider-4" min="0.05" max="0.80" step="0.05" value="0.20" oninput="onSliderChange()" class="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white">
+                    <p class="text-[10px] text-mutedgray">Protects smaller flows from starvation</p>
+                </div>
+            </div>
         </div>
-        <div class="phase-timer green" id="phase-countdown">0.0s</div>
-      </div>
-      <div class="phase-track"><div class="phase-fill" id="phase-fill" style="width:50%;background:var(--green)"></div></div>
-      <div class="phase-help">Adaptive timer: extends if more vehicles are queued</div>
-      <div class="queue-row">
-        <div class="queue-pill">
-          <div class="queue-label">NS Queue</div>
-          <div class="queue-val" id="ns-queue">0</div>
+
+        <!-- Recent Packet Inspection Stream -->
+        <div class="bg-darkcard border border-bordergray rounded-xl p-5">
+            <div class="flex items-center justify-between pb-3 border-b border-bordergray">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                    <span>◈</span>
+                    <span>Live Packet Inspection & Congestion Drops</span>
+                </h3>
+                <span class="text-[10px] text-mutedgray font-mono" id="packet-flow-stats">STREAMING RECENT DROPS</span>
+            </div>
+            <div class="overflow-x-auto mt-3">
+                <table class="w-full text-left text-xs text-silvertext">
+                    <thead class="text-[10px] text-mutedgray uppercase bg-neutral-950 border-b border-bordergray font-mono">
+                        <tr>
+                            <th class="py-2.5 px-3">Packet ID</th>
+                            <th class="py-2.5 px-3">Class</th>
+                            <th class="py-2.5 px-3">Size</th>
+                            <th class="py-2.5 px-3">Creation Time</th>
+                            <th class="py-2.5 px-3">Latency (ms)</th>
+                            <th class="py-2.5 px-3">Status</th>
+                            <th class="py-2.5 px-3">Drop Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packet-log-tbody" class="divide-y divide-bordergray font-mono text-[11px]">
+                        <tr>
+                            <td colspan="7" class="py-4 text-center text-mutedgray font-sans">
+                                Queues currently healthy. No packet drop congestion detected.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="queue-pill">
-          <div class="queue-label">EW Queue</div>
-          <div class="queue-val" id="ew-queue">0</div>
+
+    </main>
+
+    <!-- Benchmark Results Modal (Monochrome Minimalist) -->
+    <div id="benchmark-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-darkcard border border-bordergraylight rounded-xl max-w-4xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-bordergray">
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                        <span>◈</span>
+                        <span>Side-by-Side QoS Benchmark & Pareto Dominance</span>
+                    </h3>
+                    <p class="text-xs text-silvertext mt-0.5">
+                        Deterministic comparative trial across all 5 algorithms on identical incoming traffic sequences.
+                    </p>
+                </div>
+                <button onclick="closeBenchmarkModal()" class="p-1.5 rounded border border-bordergray bg-neutral-900 text-silvertext hover:text-white hover:bg-neutral-800 transition text-xs font-mono">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Benchmark Improvements Highlight Banner -->
+            <div id="benchmark-banner" class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+                <div class="p-3 rounded-lg bg-neutral-950 border border-bordergray text-center">
+                    <span class="text-[9px] text-mutedgray uppercase tracking-wider">Delay Reduction</span>
+                    <p id="bm-imp-delay" class="text-base font-black text-white mt-0.5">--%</p>
+                </div>
+                <div class="p-3 rounded-lg bg-neutral-950 border border-bordergray text-center">
+                    <span class="text-[9px] text-mutedgray uppercase tracking-wider">Jitter Reduction</span>
+                    <p id="bm-imp-jitter" class="text-base font-black text-white mt-0.5">--%</p>
+                </div>
+                <div class="p-3 rounded-lg bg-neutral-950 border border-bordergray text-center">
+                    <span class="text-[9px] text-mutedgray uppercase tracking-wider">Loss Reduction</span>
+                    <p id="bm-imp-loss" class="text-base font-black text-white mt-0.5">--%</p>
+                </div>
+                <div class="p-3 rounded-lg bg-neutral-950 border border-bordergray text-center">
+                    <span class="text-[9px] text-mutedgray uppercase tracking-wider">Fairness Boost</span>
+                    <p id="bm-imp-fairness" class="text-base font-black text-white mt-0.5">--%</p>
+                </div>
+            </div>
+
+            <!-- Benchmark Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-silvertext">
+                    <thead class="text-[10px] text-mutedgray uppercase bg-neutral-950 border-b border-bordergray font-mono">
+                        <tr>
+                            <th class="py-3 px-3">Controller</th>
+                            <th class="py-3 px-3">Throughput</th>
+                            <th class="py-3 px-3">Delay (ms)</th>
+                            <th class="py-3 px-3">Jitter (ms)</th>
+                            <th class="py-3 px-3">Loss (%)</th>
+                            <th class="py-3 px-3">Fairness (JFI)</th>
+                            <th class="py-3 px-3">5D-Hypervolume</th>
+                        </tr>
+                    </thead>
+                    <tbody id="benchmark-tbody" class="divide-y divide-bordergray font-mono text-[11px]">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
+                <div id="benchmark-dominance-status" class="text-xs text-white font-mono">
+                    <!-- Dominance status text -->
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="runLiveBenchmark()" id="bm-run-btn" class="px-4 py-2 rounded border border-white bg-white text-black font-bold text-xs shadow hover:bg-neutral-200 transition">
+                        Re-run Benchmark
+                    </button>
+                    <button onclick="closeBenchmarkModal()" class="px-4 py-2 rounded border border-bordergray bg-neutral-900 hover:bg-neutral-800 text-silvertext text-xs font-semibold">
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Scenario Injection -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon evp">🎮</div>
-      <div>
-        <div class="section-title">Scenario Injection</div>
-        <div class="section-desc">Simulate real-world traffic events</div>
-      </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      <button class="scenario-btn emergency" onclick="sendCmd('spawn_emergency')">
-        <div class="btn-icon evp">🚑</div>
-        <div>
-          <div class="btn-label">Spawn Emergency Ambulance</div>
-          <div class="btn-desc">Triggers EVP — green wave corridor opens, conflicting signals go RED</div>
-        </div>
-      </button>
-      <button class="scenario-btn hazard" onclick="sendCmd('spawn_jaywalker')">
-        <div class="btn-icon yellow">🚶</div>
-        <div>
-          <div class="btn-label">Inject Pedestrian Hazard</div>
-          <div class="btn-desc">Places pedestrian at intersection — AI fires PCW, vehicles brake</div>
-        </div>
-      </button>
-      <button class="scenario-btn rush" id="btn-rush" onclick="toggleRushHour()">
-        <div class="btn-icon orange">🚗</div>
-        <div>
-          <div class="btn-label" id="rush-label">Activate Rush Hour</div>
-          <div class="btn-desc">2× vehicle spawn rate — ASC adapts green phases to clear queues</div>
-        </div>
-      </button>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Sim Controls -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon blue">⚙️</div>
-      <div>
-        <div class="section-title">Simulation Control</div>
-        <div class="section-desc">Pause or adjust simulation speed</div>
-      </div>
-    </div>
-    <div class="sim-controls">
-      <button class="sim-btn" id="btn-pause" onclick="togglePause()">⏸ Pause</button>
-      <button class="sim-btn" onclick="sendCmd('resume')">▶ Resume</button>
-    </div>
-    <div style="margin-top:8px;">
-      <div class="speed-row">
-        <span class="speed-label">Simulation Speed</span>
-        <span class="speed-val" id="speed-val">1.0×</span>
-      </div>
-      <input type="range" min="0.2" max="3" step="0.2" value="1" oninput="setSpeed(this.value)"/>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- LDM Stats -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon blue">🗺️</div>
-      <div>
-        <div class="section-title">Local Dynamic Map (LDM)</div>
-        <div class="section-desc">5G MEC sensor fusion state</div>
-      </div>
-    </div>
-    <div class="ldm-grid">
-      <div class="ldm-stat">
-        <div class="ldm-val" id="ldm-vehicles">0</div>
-        <div class="ldm-key">Live Vehicles</div>
-        <div class="ldm-desc">Active in intersection</div>
-      </div>
-      <div class="ldm-stat">
-        <div class="ldm-val" id="ldm-vrus">0</div>
-        <div class="ldm-key">VRUs Tracked</div>
-        <div class="ldm-desc">Pedestrians / cyclists</div>
-      </div>
-      <div class="ldm-stat">
-        <div class="ldm-val" id="ldm-packets">0</div>
-        <div class="ldm-key">Packets In</div>
-        <div class="ldm-desc">Gateway total ingested</div>
-      </div>
-      <div class="ldm-stat">
-        <div class="ldm-val danger" id="ldm-rejected">0</div>
-        <div class="ldm-key">PKI Rejected</div>
-        <div class="ldm-desc">Invalid cert packets</div>
-      </div>
-    </div>
-  </div>
-
-</div>
-<!-- end left-panel -->
-
-
-<!-- ═══════════════  MAP / CANVAS  ═══════════════ -->
-<div class="map-area">
-  <!-- Top-right info chips -->
-  <div class="map-info-bar">
-    <div class="map-chip">🚗 Vehicles: <span id="chip-vehicles">0</span></div>
-    <div class="map-chip">🚶 VRUs: <span id="chip-vrus">0</span></div>
-    <div class="map-chip">⚡ Active Alerts: <span id="chip-alerts">0</span></div>
-  </div>
-
-  <!-- Alert banner (collision warning) -->
-  <div class="alert-banner" id="alert-banner">
-    <div class="banner-inner fcw" id="alert-banner-inner">⚠️ COLLISION WARNING</div>
-  </div>
-
-  <!-- EVP banner (ambulance green wave) -->
-  <div class="evp-banner" id="evp-banner">
-    <div class="banner-inner evp">🚨 EMERGENCY VEHICLE PREEMPTION — GREEN WAVE ACTIVE</div>
-  </div>
-
-  <!-- The intersection digital twin canvas -->
-  <canvas id="canvas" width="600" height="600"></canvas>
-
-  <!-- Map legend -->
-  <div class="map-legend">
-    <div class="legend-title">Map Legend</div>
-    <div class="legend-row"><div class="legend-dot vehicle"></div> Connected Vehicle (BSM broadcasting)</div>
-    <div class="legend-row"><div class="legend-dot emergency"></div> Emergency Vehicle (siren + EVP active)</div>
-    <div class="legend-row"><div class="legend-dot pedestrian"></div> VRU — Pedestrian / Cyclist</div>
-    <div class="legend-row"><div class="legend-dot rsu"></div> RSU — Roadside Radar / Camera Sensor</div>
-    <div class="legend-row"><div class="legend-dot signal"></div> Traffic Signal (SPaT-controlled)</div>
-  </div>
-</div>
-
-
-<!-- ═══════════════  RIGHT PANEL  ═══════════════ -->
-<div class="panel right-panel">
-
-  <!-- V2X Packet Feed -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon blue">📡</div>
-      <div>
-        <div class="section-title">V2X Packet Feed</div>
-        <div class="section-desc">CAM / BSM broadcasts from all vehicles (SAE J2735)</div>
-      </div>
-    </div>
-    <div class="feed-box">
-      <div class="feed-header">
-        <span class="feed-label">Live Radio Packets</span>
-        <div class="feed-live"><div class="feed-live-dot"></div> RECEIVING</div>
-      </div>
-      <div class="feed-content" id="packet-log">
-        <div class="empty-state">Awaiting data stream…</div>
-      </div>
-    </div>
-    <div style="margin-top:5px;font-size:9px;color:var(--muted2);">
-      🔵 BSM = vehicle &nbsp;|&nbsp; 🟣 VRU = pedestrian &nbsp;|&nbsp; 🟠 RSU = roadside sensor &nbsp;|&nbsp; 🔴 Emergency
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Edge AI Inference Log -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon yellow">🤖</div>
-      <div>
-        <div class="section-title">Edge AI Inference Log</div>
-        <div class="section-desc">Real-time safety alerts computed in &lt;20ms on 5G MEC</div>
-      </div>
-    </div>
-    <div class="feed-box" style="max-height:155px;">
-      <div class="feed-header">
-        <span class="feed-label">Alert Types: FCW · PCW · EVP</span>
-        <span style="font-size:9px;color:var(--muted)">Inference latency shown</span>
-      </div>
-      <div class="feed-content" id="event-log">
-        <div class="empty-state">No active alerts</div>
-      </div>
-    </div>
-    <div style="margin-top:5px;font-size:9px;color:var(--muted2);">
-      FCW = Forward Collision Warning &nbsp;|&nbsp; PCW = Pedestrian &nbsp;|&nbsp; EVP = Emergency Vehicle
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- EVP Events -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon evp">🚨</div>
-      <div>
-        <div class="section-title">Emergency / EVP Events</div>
-        <div class="section-desc">Preemption trigger &amp; corridor clearance log</div>
-      </div>
-    </div>
-    <div class="feed-box" style="max-height:130px;">
-      <div class="feed-header">
-        <span class="feed-label">Route Clearing History</span>
-        <span style="font-size:9px;color:var(--muted)">Ambulance / Fire / Police</span>
-      </div>
-      <div class="feed-content" id="evp-log">
-        <div class="empty-state">No emergency events yet</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Scenario Log -->
-  <div>
-    <div class="section-head">
-      <div class="section-icon orange">📋</div>
-      <div>
-        <div class="section-title">Scenario Log</div>
-        <div class="section-desc">User-injected test events timeline</div>
-      </div>
-    </div>
-    <div class="feed-box" style="max-height:110px;">
-      <div class="feed-content" id="scenario-log">
-        <div class="empty-state">No scenarios triggered yet</div>
-      </div>
-    </div>
-  </div>
-
-</div>
-<!-- end right-panel -->
-
-</div><!-- end layout -->
-
-<script>
-// ─── WebSocket connection to Python backend ───────────────────────────────────
-// This gets live simulation data every 50ms (20 FPS)
-const ws = new WebSocket(`ws://${location.host}/ws`);
-ws.onmessage = e => processState(JSON.parse(e.data));
-ws.onerror = () => console.error('WS error');
-
-function sendCmd(cmd, extra={}) {
-  ws.send(JSON.stringify({cmd, ...extra}));
-}
-
-let rushHourActive = false;
-function toggleRushHour() {
-  rushHourActive = !rushHourActive;
-  sendCmd(rushHourActive ? 'rush_hour_on' : 'rush_hour_off');
-  document.getElementById('rush-label').textContent = rushHourActive ? '✅ Rush Hour Active' : 'Activate Rush Hour';
-  document.getElementById('btn-rush').classList.toggle('active', rushHourActive);
-}
-
-let paused = false;
-function togglePause() {
-  paused = !paused;
-  sendCmd(paused ? 'pause' : 'resume');
-  document.getElementById('btn-pause').textContent = paused ? '▶ Resume' : '⏸ Pause';
-}
-
-function setSpeed(v) {
-  document.getElementById('speed-val').textContent = parseFloat(v).toFixed(1) + '×';
-  sendCmd('speed', {value: v});
-}
-
-// ─── Canvas Setup ─────────────────────────────────────────────────────────────
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const W = 600, H = 600, CX = 300, CY = 300;
-const ROAD_HALF = 40;
-
-// ─── Draw intersection background ────────────────────────────────────────────
-function drawBackground(signalState, evpActive) {
-  ctx.fillStyle = '#0c1418';
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = '#0f1c0f';
-  ctx.fillRect(0, 0, CX - ROAD_HALF, CY - ROAD_HALF);
-  ctx.fillRect(CX + ROAD_HALF, 0, W - CX - ROAD_HALF, CY - ROAD_HALF);
-  ctx.fillRect(0, CY + ROAD_HALF, CX - ROAD_HALF, H - CY - ROAD_HALF);
-  ctx.fillRect(CX + ROAD_HALF, CY + ROAD_HALF, W - CX - ROAD_HALF, H - CY - ROAD_HALF);
-
-  ctx.fillStyle = '#1a1f25';
-  ctx.fillRect(CX - ROAD_HALF, 0, ROAD_HALF * 2, H);
-  ctx.fillRect(0, CY - ROAD_HALF, W, ROAD_HALF * 2);
-
-  if (evpActive) {
-    ctx.save();
-    ctx.globalAlpha = 0.08;
-    ctx.fillStyle = '#ff6b35';
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-  }
-
-  ctx.setLineDash([12, 10]);
-  ctx.strokeStyle = '#ffff0030';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(CX, 0); ctx.lineTo(CX, CY - ROAD_HALF);
-  ctx.moveTo(CX, CY + ROAD_HALF); ctx.lineTo(CX, H);
-  ctx.moveTo(0, CY); ctx.lineTo(CX - ROAD_HALF, CY);
-  ctx.moveTo(CX + ROAD_HALF, CY); ctx.lineTo(W, CY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.strokeStyle = '#ffffff60'; ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(CX - ROAD_HALF, CY - ROAD_HALF - 2); ctx.lineTo(CX, CY - ROAD_HALF - 2);
-  ctx.moveTo(CX, CY + ROAD_HALF + 2); ctx.lineTo(CX + ROAD_HALF, CY + ROAD_HALF + 2);
-  ctx.moveTo(CX + ROAD_HALF + 2, CY); ctx.lineTo(CX + ROAD_HALF + 2, CY - ROAD_HALF);
-  ctx.moveTo(CX - ROAD_HALF - 2, CY + ROAD_HALF); ctx.lineTo(CX - ROAD_HALF - 2, CY);
-  ctx.stroke();
-
-  drawCrosswalk(CX - ROAD_HALF, CY - ROAD_HALF - 14, ROAD_HALF * 2, 12, true);
-  drawCrosswalk(CX - ROAD_HALF, CY + ROAD_HALF + 2, ROAD_HALF * 2, 12, true);
-  drawCrosswalk(CX - ROAD_HALF - 14, CY - ROAD_HALF, 12, ROAD_HALF * 2, false);
-  drawCrosswalk(CX + ROAD_HALF + 2, CY - ROAD_HALF, 12, ROAD_HALF * 2, false);
-
-  drawRSU(CX - ROAD_HALF - 18, CY - ROAD_HALF - 18, 'NW');
-  drawRSU(CX + ROAD_HALF + 5,  CY - ROAD_HALF - 18, 'NE');
-  drawRSU(CX - ROAD_HALF - 18, CY + ROAD_HALF + 5,  'SW');
-  drawRSU(CX + ROAD_HALF + 5,  CY + ROAD_HALF + 5,  'SE');
-
-  drawSignal(CX - ROAD_HALF - 22, CY - ROAD_HALF - 22, signalState?.north || 'red');
-  drawSignal(CX + ROAD_HALF + 8,  CY + ROAD_HALF + 8,  signalState?.south || 'red');
-  drawSignal(CX + ROAD_HALF + 8,  CY - ROAD_HALF - 22, signalState?.east  || 'red');
-  drawSignal(CX - ROAD_HALF - 22, CY + ROAD_HALF + 8,  signalState?.west  || 'red');
-
-  ctx.fillStyle = '#ffffff40'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('N', CX, 18);
-  ctx.fillText('S', CX, H - 8);
-  ctx.fillStyle = '#ffffff40'; ctx.textAlign = 'left';
-  ctx.fillText('W', 8, CY + 4);
-  ctx.textAlign = 'right';
-  ctx.fillText('E', W - 8, CY + 4);
-}
-
-function drawCrosswalk(x, y, w, h, horiz) {
-  ctx.fillStyle = '#ffffff18';
-  const stripes = 5;
-  for (let i = 0; i < stripes; i++) {
-    if (horiz) {
-      const sw = w / (stripes * 2 - 1);
-      ctx.fillRect(x + i * sw * 2, y, sw, h);
-    } else {
-      const sh = h / (stripes * 2 - 1);
-      ctx.fillRect(x, y + i * sh * 2, w, sh);
-    }
-  }
-}
-
-function drawRSU(x, y, label) {
-  ctx.fillStyle = '#1c2b3a';
-  ctx.strokeStyle = '#58a6ff50'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(x + 6, y + 6, 7, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = '#58a6ff30';
-  for (let r = 10; r <= 22; r += 6) {
-    ctx.beginPath(); ctx.arc(x + 6, y + 6, r, 0, Math.PI * 2); ctx.stroke();
-  }
-  ctx.fillStyle = '#58a6ff'; ctx.font = '6px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('RSU', x + 6, y + 10);
-}
-
-function drawSignal(x, y, state) {
-  const colors = {green: '#3fb950', yellow: '#d29922', red: '#f85149'};
-  const glows  = {green: '#3fb95080', yellow: '#d2992280', red: '#f8514980'};
-  ctx.fillStyle = '#161b22';
-  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x, y, 14, 14, 2); ctx.fill(); ctx.stroke();
-  const c = colors[state] || colors.red;
-  ctx.fillStyle = c;
-  ctx.shadowColor = glows[state] || glows.red;
-  ctx.shadowBlur = 8;
-  ctx.beginPath(); ctx.arc(x + 7, y + 7, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-}
-
-// ─── Draw Vehicles ────────────────────────────────────────────────────────────
-function drawVehicle(v) {
-  const { x, y, heading, type, waiting, brake, siren } = v;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate((heading * Math.PI) / 180);
-
-  const isEmergency = type === 'emergency';
-  const VW = isEmergency ? 14 : 12;
-  const VH = isEmergency ? 22 : 18;
-
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillRect(-VW/2 + 1, -VH/2 + 1, VW, VH);
-
-  ctx.fillStyle = isEmergency ? '#ff6b35' : (waiting ? '#8b949e' : (brake ? '#f85149' : '#58a6ff'));
-  if (type === 'bus') ctx.fillStyle = '#3fb950';
-  if (type === 'truck') ctx.fillStyle = '#d29922';
-  ctx.beginPath();
-  ctx.roundRect(-VW/2, -VH/2, VW, VH, 2);
-  ctx.fill();
-
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillRect(-VW/2 + 2, -VH/2 + 2, VW - 4, 5);
-
-  ctx.fillStyle = '#ffffffcc';
-  ctx.fillRect(-VW/2 + 1, -VH/2, 3, 2);
-  ctx.fillRect(VW/2 - 4, -VH/2, 3, 2);
-
-  if (siren) {
-    const t = Date.now() / 200;
-    ctx.strokeStyle = Math.sin(t) > 0 ? '#ff0000' : '#0000ff';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(-VW/2 - 2, -VH/2 - 2, VW + 4, VH + 4);
-    ctx.shadowColor = Math.sin(t) > 0 ? 'red' : 'blue';
-    ctx.shadowBlur = 15;
-    ctx.strokeRect(-VW/2 - 2, -VH/2 - 2, VW + 4, VH + 4);
-    ctx.shadowBlur = 0;
-  }
-
-  ctx.restore();
-
-  ctx.fillStyle = '#8b949e';
-  ctx.font = '7px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(v.id.slice(-6), x, y + VH/2 + 10);
-}
-
-// ─── Draw Pedestrian ──────────────────────────────────────────────────────────
-function drawPedestrian(p) {
-  ctx.fillStyle = '#bc8cff';
-  ctx.shadowColor = '#bc8cff50'; ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(188,140,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
-  ctx.stroke();
-}
-
-// ─── Draw Alert rings ────────────────────────────────────────────────────────
-function drawAlerts(alerts, vehicles) {
-  if (!alerts || alerts.length === 0) return;
-  const vmap = {};
-  vehicles.forEach(v => vmap[v.id] = v);
-
-  alerts.forEach(a => {
-    const v = vmap[a.target_vehicle_id];
-    if (!v) return;
-    if (a.alert_type === 'FCW') {
-      ctx.strokeStyle = 'rgba(248,81,73,0.8)'; ctx.lineWidth = 2;
-      ctx.setLineDash([5, 3]);
-      ctx.beginPath(); ctx.arc(v.x, v.y, 20, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#f85149'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-      ctx.fillText(`⚠ TTC:${a.ttc_seconds}s`, v.x, v.y - 24);
-      ctx.setLineDash([]);
-    } else if (a.alert_type === 'PCW') {
-      ctx.strokeStyle = 'rgba(188,140,255,0.8)'; ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath(); ctx.arc(v.x, v.y, 18, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#bc8cff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('PED ⚠', v.x, v.y - 22);
-      ctx.setLineDash([]);
-    } else if (a.alert_type === 'EVP_APPROACH') {
-      ctx.strokeStyle = 'rgba(255,107,53,0.9)'; ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.beginPath(); ctx.arc(v.x, v.y, 25, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#ff6b35'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('🚨 EVP', v.x, v.y - 28);
-    }
-  });
-}
-
-// ─── Signal lamp helper ───────────────────────────────────────────────────────
-function updateLamp(prefix, state) {
-  const states = ['red','yellow','green'];
-  states.forEach(s => {
-    const el = document.getElementById(`lamp-${prefix}-${s}`);
-    if (el) {
-      el.className = 'sig-lamp' + (state === s ? ` ${s}-on` : '');
-    }
-  });
-  const textEl = document.getElementById(`sig-${mapDir(prefix)}-text`);
-  if (textEl) {
-    textEl.textContent = state.toUpperCase();
-    textEl.className = `sig-state-text ${state}`;
-  }
-}
-
-function mapDir(p) {
-  return {n:'north', s:'south', e:'east', w:'west'}[p] || p;
-}
-
-// ─── Process incoming simulation state ───────────────────────────────────────
-let lastState = null;
-function processState(state) {
-  lastState = state;
-  updateUI(state);
-  render(state);
-}
-
-function updateUI(s) {
-  const k = s.kpis || {};
-  document.getElementById('kpi-vehicles').textContent = k.total_vehicles_processed || 0;
-  document.getElementById('kpi-alerts').textContent   = k.alerts_generated || 0;
-  document.getElementById('kpi-cycles').textContent   = k.cycles_completed || 0;
-  document.getElementById('kpi-evp').textContent      = k.emergency_clearings || 0;
-
-  // Signal lamps (proper 3-lamp traffic light)
-  const sig = s.signal_state || {};
-  updateLamp('n', sig.north || 'red');
-  updateLamp('s', sig.south || 'red');
-  updateLamp('e', sig.east  || 'red');
-  updateLamp('w', sig.west  || 'red');
-
-  // Phase bar
-  const spat  = s.spat || {};
-  const phase = spat.current_phase || 'NS_GREEN';
-  document.getElementById('phase-name').textContent      = phase;
-  document.getElementById('phase-countdown').textContent = (spat.countdown || 0).toFixed(1) + 's';
-  document.getElementById('hdr-phase').textContent       = phase;
-  document.getElementById('ns-queue').textContent        = spat.ns_queue || 0;
-  document.getElementById('ew-queue').textContent        = spat.ew_queue || 0;
-
-  const fill = document.getElementById('phase-fill');
-  const pct  = Math.min(100, ((spat.countdown || 0) / 40) * 100);
-  fill.style.width      = pct + '%';
-  fill.style.background = phase.includes('GREEN')  ? 'var(--green)'  :
-                          phase.includes('YELLOW') ? 'var(--yellow)' : 'var(--evp)';
-
-  const cdEl = document.getElementById('phase-countdown');
-  cdEl.className = 'phase-timer ' + (phase.includes('GREEN') ? 'green' : phase.includes('YELLOW') ? 'yellow' : 'evp');
-
-  // Header badges
-  const evp = s.evp || {};
-  document.getElementById('hdr-evp').style.display   = evp.preemption_active ? 'flex' : 'none';
-  document.getElementById('hdr-alert').style.display = (s.alerts?.length > 0) ? 'flex' : 'none';
-
-  // Banners
-  const alertBanner = document.getElementById('alert-banner');
-  const evpBanner   = document.getElementById('evp-banner');
-  if (s.alerts?.some(a => a.alert_type === 'PCW' || a.alert_type === 'FCW')) {
-    const a = s.alerts.find(a => a.alert_type === 'PCW' || a.alert_type === 'FCW');
-    alertBanner.style.display = 'block';
-    document.getElementById('alert-banner-inner').textContent = `⚠️ ${a.alert_type} — ${a.recommended_action}`;
-    setTimeout(() => alertBanner.style.display = 'none', 3000);
-  }
-  evpBanner.style.display = evp.preemption_active ? 'block' : 'none';
-
-  // Map corner chips
-  document.getElementById('chip-vehicles').textContent = (s.vehicles || []).length;
-  document.getElementById('chip-vrus').textContent     = (s.pedestrians || []).length;
-  document.getElementById('chip-alerts').textContent   = (s.alerts || []).length;
-
-  // LDM stats
-  document.getElementById('ldm-vehicles').textContent = (s.vehicles || []).length;
-  document.getElementById('ldm-vrus').textContent     = (s.pedestrians || []).length;
-  const gw = s.gateway_stats || {};
-  document.getElementById('ldm-packets').textContent  = gw.total_ingested || 0;
-  document.getElementById('ldm-rejected').textContent = gw.rejected_packets || 0;
-
-  // ── Packet feed ──
-  const pLog = document.getElementById('packet-log');
-  const pkts = s.recent_packets || [];
-  if (pkts.length === 0) {
-    pLog.innerHTML = '<div class="empty-state">Awaiting data stream…</div>';
-  } else {
-    pLog.innerHTML = pkts.slice().reverse().map(p => {
-      const isEm = p.vehicle_type === 'emergency';
-      const cls  = p.source === 'BSM' ? (isEm ? 'emergency' : 'bsm') : p.source === 'VRU' ? 'vru' : 'rsu';
-      const id   = (p.station_id || p.vru_id || p.object_id || '?').slice(-8);
-      const spd  = p.speed ? `${p.speed}m/s` : '';
-      const pos  = `(${Math.round(p.x||0)},${Math.round(p.y||0)})`;
-      return `<div class="pkt ${cls}">
-        <span class="pkt-type ${cls}">${p.source}</span>
-        <span class="pkt-id">${id}</span>
-        <span class="pkt-data">${pos} ${spd}</span>
-      </div>`;
-    }).join('');
-  }
-
-  // ── Edge AI log ──
-  const eLog   = document.getElementById('event-log');
-  const alerts = s.alerts || [];
-  if (alerts.length === 0) {
-    eLog.innerHTML = '<div class="empty-state">No active alerts — intersection safe ✓</div>';
-  } else {
-    eLog.innerHTML = alerts.map(a => {
-      const sev = a.severity === 'CRITICAL' ? 'critical' : 'warning';
-      const ttc = a.ttc_seconds ? `<span class="ai-ttc"> TTC: ${a.ttc_seconds}s</span>` : '';
-      return `<div class="ai-entry ${sev}">
-        <div class="ai-top">
-          <span class="ai-type ${sev}">[${a.alert_type}]</span>
-          <span class="ai-latency">⚡ ${a.inference_latency_ms}ms</span>
-        </div>
-        <div class="ai-msg">${a.recommended_action}${ttc}</div>
-      </div>`;
-    }).join('');
-  }
-
-  // ── EVP events ──
-  const evpLog    = document.getElementById('evp-log');
-  const evpEvents = s.evp_events || [];
-  evpLog.innerHTML = evpEvents.length === 0
-    ? '<div class="empty-state">No emergency events yet</div>'
-    : evpEvents.slice().reverse().map(e => `<div class="evp-entry">${e.message}</div>`).join('');
-
-  // ── Scenario log ──
-  const sLog    = document.getElementById('scenario-log');
-  const scenLog = s.scenario_log || [];
-  sLog.innerHTML = scenLog.length === 0
-    ? '<div class="empty-state">No scenarios triggered yet</div>'
-    : scenLog.slice().reverse().map(e => `<div class="sc-entry">${e.msg}</div>`).join('');
-
-  document.getElementById('hdr-time').textContent = new Date().toLocaleTimeString();
-}
-
-// ─── Render canvas ────────────────────────────────────────────────────────────
-function render(state) {
-  const evp = state.evp || {};
-  ctx.clearRect(0, 0, W, H);
-  drawBackground(state.signal_state, evp.preemption_active);
-  (state.pedestrians || []).forEach(drawPedestrian);
-  drawAlerts(state.alerts, state.vehicles || []);
-  (state.vehicles || []).forEach(drawVehicle);
-}
-
-// Animation loop (keeps canvas alive between WebSocket messages)
-function loop() {
-  requestAnimationFrame(loop);
-  if (lastState) render(lastState);
-}
-loop();
-</script>
+    <!-- Application Script -->
+    <script src="/static/app.js"></script>
 </body>
 </html>
